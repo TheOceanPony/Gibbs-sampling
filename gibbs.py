@@ -38,6 +38,7 @@ def bernoulli(p):
     v=random.uniform(0,1)
     return int(v<p)
 
+
 def calculate_probab(im,h,w,p,a_pr,fixed_lines):
 
     prob=np.zeros(h)
@@ -52,6 +53,7 @@ def calculate_probab(im,h,w,p,a_pr,fixed_lines):
 
     return prob
 
+
 def gibbs_sampler(new_im,p,pc,iters):
 
     h=new_im.shape[0]
@@ -63,6 +65,28 @@ def gibbs_sampler(new_im,p,pc,iters):
         r=generate_lines(calculate_probab(new_im,h,w,p,pc,c))
 
     return r,c
+
+
+def exact_answ(im,h,w,pc,p):
+    var=np.arange(2)
+    rows_prob=np.zeros((2))
+    prob=np.zeros((2,w))
+    p_apr=pc**np.arange(2)*(1-pc)**(1-np.arange(2))
+    cols=np.zeros((w))
+    for c in var:
+        for i in range(0,w):
+            for r in var:
+                rows_prob[r]=p_apr[r]
+                for j in range(0,h):
+                    rows_prob[r]*=(im[j,i]^(c or r))*p+(im[j,i]^(1-(c or r)))*(1-p)
+            prob[c,i]=np.sum(rows_prob)
+    
+    for i in tqdm(range(0,w)):
+        prob[:,i]=prob[:,i]/np.sum(prob[:,i])
+        cols[i]=bernoulli(prob[1,i])
+    rows=generate_lines(calculate_probab(im,h,w,p,p_apr,cols))
+    return rows,cols
+
 
 def generate_lines(prob):
 
@@ -80,8 +104,12 @@ def generate_lines(prob):
 
 def main(h, w, p, pc, n_iter):
 
+
+
     id_img, img,rows, cols = initial_image(h, w, p, pc)
 
+    print("Gibbs sampler:")
+    print("=================================================")
     [res_r, res_c] = gibbs_sampler(img,p,pc,n_iter)
     
     r_acc, c_acc = (res_r==rows).sum(),(res_c==cols).sum()
@@ -90,6 +118,15 @@ def main(h, w, p, pc, n_iter):
     plt.imsave("img.png",img)
     plt.imsave("img_ideal.png", id_img)
     plt.imsave("img_reconstructed.png",reconstruct(res_r,res_c))
+    print(f"Results written to disk.")
+
+    print("")
+    print("Exact solution:")
+    print("=================================================")
+    [res_r, res_c] = exact_answ(img,h,w,pc,p)
+    r_acc, c_acc = (res_r==rows).sum(),(res_c==cols).sum()
+    print(f"Result accuracy: {((r_acc/h)+(c_acc/w))/2 }")
+    plt.imsave("img_exact.png",reconstruct(res_r,res_c))
     print(f"Results written to disk.")
 
 
